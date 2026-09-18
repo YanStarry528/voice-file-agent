@@ -1,0 +1,16 @@
+# 环境变量（含 API 密钥，切勿提交）
+.env
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 运行时生成的文件（Agent 执行结果）
+output/
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
