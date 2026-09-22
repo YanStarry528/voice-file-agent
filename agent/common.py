@@ -22,5 +22,9 @@ LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-v4-flash")
 # 本地语音转文字模型（faster-whisper，不走中转）：tiny / base / small
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
 
+# TTS 语音合成（edge-tts，微软在线服务，免费）：回复语音的发音人与可选代理
+TTS_VOICE = os.getenv("TTS_VOICE", "zh-CN-XiaoxiaoNeural")
+TTS_PROXY = os.getenv("TTS_PROXY", "")
+
 # 所有文件操作的输出目录（绝对路径，不受启动目录影响）
 OUTPUT_DIR = ROOT / "output"

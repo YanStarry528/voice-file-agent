@@ -40,7 +40,7 @@
   .dropzone {
     border: 2px dashed var(--border);
     border-radius: 12px;
-    padding: 36px 20px;
+    padding: 20px;
     text-align: center;
     cursor: pointer;
     transition: all .2s;
@@ -50,7 +50,7 @@
     border-color: var(--primary);
     background: #f3f5ff;
   }
-  .dropzone .icon { font-size: 40px; margin-bottom: 10px; }
+  .dropzone .icon { font-size: 26px; }
   .dropzone p { color: var(--muted); }
   .dropzone .pick { color: var(--primary); font-weight: 600; cursor: pointer; }
   .dropzone .filename { margin-top: 10px; font-weight: 600; color: var(--text); }
@@ -72,15 +72,59 @@
   }
   .btn.primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(91,108,255,.35); }
   .btn.primary:disabled { opacity: .5; cursor: not-allowed; }
-  .result-block { display: none; }
+  .btn.ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    font-size: 13px;
+    margin-top: 12px;
+  }
+  .btn.ghost:hover { color: var(--primary); border-color: var(--primary); }
+  /* 文字指令卡吸顶：主屏全程可见，避免"往上滚发指令、往下滚看结果" */
+  .card.sticky-card {
+    position: sticky;
+    top: 12px;
+    z-index: 20;
+    padding: 14px 16px 16px;
+    margin-bottom: 16px;
+  }
+  .card.sticky-card .field { margin-bottom: 10px; }
+  .card.sticky-card .btn.primary { margin-top: 8px; padding: 10px 22px; }
+  .result-block { display: none; scroll-margin-top: 130px; }
   .result-block.show { display: block; }
-  .field { margin-bottom: 16px; }
+  .result-block .card { padding: 14px 16px; }        /* 结果卡更紧凑 */
+  .field { margin-bottom: 12px; }
   .field:last-child { margin-bottom: 0; }
   .field .label { font-size: 12px; color: var(--muted); font-weight: 700; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .5px; }
-  .field .value { background: #f7f8fc; border-radius: 10px; padding: 14px; word-break: break-word; white-space: pre-wrap; }
+  .field .value { background: #f7f8fc; border-radius: 10px; padding: 10px 12px; word-break: break-word; white-space: pre-wrap; }
+  /* 识别意图默认收起：调试信息不占版面，需要时点开 */
+  details.json-details > summary {
+    cursor: pointer; list-style: none; user-select: none;
+    font-size: 12px; color: var(--muted); font-weight: 700;
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;
+  }
+  details.json-details > summary::-webkit-details-marker { display: none; }
+  details.json-details > summary::before { content: "▸ "; }
+  details.json-details[open] > summary::before { content: "▾ "; }
+  details.json-details > summary:hover { color: var(--primary); }
   .field pre.value { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+  .text-input {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-family: inherit;
+    color: var(--text);
+    background: #f7f8fc;
+    outline: none;
+    transition: border-color .2s, background .2s;
+  }
+  .text-input:focus { border-color: var(--primary); background: #fff; }
   .success-text { color: var(--success); font-weight: 600; }
   .error-text { color: var(--danger); font-weight: 600; }
+  .asking-text { color: #b45309; font-weight: 600; background: #fef9c3; }
   .filelist { list-style: none; }
   .filelist li {
     padding: 10px 12px;
@@ -106,7 +150,17 @@
   <header>
     <h1>🎤 语音指令文件 Agent</h1>
     <p>上传一段录音，自动识别内容并执行文件操作</p>
+    <button class="btn ghost" id="reset" type="button">🔄 新对话</button>
+    <button class="btn ghost" id="tts-toggle" type="button">🔊 语音播报：开</button>
   </header>
+
+  <section class="card sticky-card">
+    <div class="field">
+      <div class="label">文字指令（无需录音）</div>
+      <input class="text-input" id="text-cmd" type="text" placeholder="例如：帮我保存一段话，内容是我爱编程，文件名叫 hello">
+    </div>
+    <button class="btn primary" id="send-text">发送文字指令</button>
+  </section>
 
   <section class="card">
     <div class="dropzone" id="dropzone">
@@ -125,13 +179,16 @@
         <div class="value" id="text"></div>
       </div>
       <div class="field">
-        <div class="label">识别意图</div>
-        <pre class="value" id="intent"></pre>
+        <details class="json-details">
+          <summary>识别意图（点击展开）</summary>
+          <pre class="value" id="intent"></pre>
+        </details>
       </div>
       <div class="field">
         <div class="label">执行结果</div>
         <div class="value" id="result-text"></div>
       </div>
+      <button class="btn ghost" id="speak-btn" type="button" style="display:none;">🔊 重播</button>
     </div>
   </section>
 
@@ -155,6 +212,66 @@
   const resultBlock = document.getElementById('result');
 
   let selectedFile = null;
+
+  // ===== TTS 语音播报 =====
+  let speakEnabled = localStorage.getItem('speak_enabled') !== '0';
+  let currentAudio = null;
+
+  const ttsToggle = document.getElementById('tts-toggle');
+  function renderTtsToggle() {
+    ttsToggle.textContent = speakEnabled ? '🔊 语音播报：开' : '🔇 语音播报：关';
+  }
+  ttsToggle.addEventListener('click', () => {
+    speakEnabled = !speakEnabled;
+    localStorage.setItem('speak_enabled', speakEnabled ? '1' : '0');
+    if (!speakEnabled) stopSpeak();
+    renderTtsToggle();
+  });
+  renderTtsToggle();
+
+  function setSpeakBtn(playing) {
+    document.getElementById('speak-btn').textContent = playing ? '⏹ 停止' : '🔊 重播';
+  }
+
+  function stopSpeak() {
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    setSpeakBtn(false);
+  }
+
+  async function speak(text) {
+    if (!text || !speakEnabled) return;
+    stopSpeak();
+    try {
+      const fd = new FormData();
+      fd.append('text', text);
+      const resp = await fetch('/api/tts', { method: 'POST', body: fd });
+      if (!resp.ok) return;
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      currentAudio = audio;
+      audio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; setSpeakBtn(false); };
+      setSpeakBtn(true);
+      await audio.play();
+    } catch (e) {
+      // 自动播放被浏览器拦截或 TTS 失败 → 静默降级，仅保留文字
+      setSpeakBtn(false);
+    }
+  }
+
+  function getSessionId() {
+    let sid = localStorage.getItem('session_id');
+    if (!sid) {
+      sid = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
+      localStorage.setItem('session_id', sid);
+    }
+    return sid;
+  }
+
+  document.getElementById('reset').addEventListener('click', () => {
+    localStorage.removeItem('session_id');
+    location.reload();
+  });
 
   function setFile(file) {
     selectedFile = file;
@@ -188,17 +305,12 @@
 
     const fd = new FormData();
     fd.append('audio', selectedFile);
+    fd.append('session_id', getSessionId());
 
     try {
       const resp = await fetch('/api/upload', { method: 'POST', body: fd });
       const data = await resp.json();
-      document.getElementById('text').textContent = data.text || '(空)';
-      document.getElementById('intent').textContent = JSON.stringify(data.intent, null, 2);
-      const rt = document.getElementById('result-text');
-      rt.textContent = data.result || '';
-      rt.className = 'value' + (data.result && data.result.includes('失败') ? ' error-text' : ' success-text');
-      renderFiles(data.files || []);
-      resultBlock.classList.add('show');
+      renderResult(data);
     } catch (err) {
       document.getElementById('text').textContent = '';
       document.getElementById('intent').textContent = '';
@@ -211,6 +323,70 @@
       submitBtn.innerHTML = '开始处理';
     }
   });
+
+  function renderResult(data) {
+    document.getElementById('text').textContent = data.text || '(空)';
+    document.getElementById('intent').textContent = JSON.stringify(data.intent, null, 2);
+    const rt = document.getElementById('result-text');
+    rt.textContent = data.result || '';
+    let cls = 'value';
+    if (data.asking || data.confirming) cls += ' asking-text';
+    else if (data.result && data.result.includes('失败')) cls += ' error-text';
+    else cls += ' success-text';
+    rt.className = cls;
+    renderFiles(data.files || []);
+    resultBlock.classList.add('show');
+    // TTS 播报执行结果 + 显示重播按钮
+    const speakBtn = document.getElementById('speak-btn');
+    if (data.result) {
+      speakBtn.style.display = 'inline-block';
+      speakBtn.onclick = () => {
+        if (currentAudio) { stopSpeak(); return; }  // 播放中再点 → 停止
+        speak(data.result);
+      };
+      speak(data.result);
+    } else {
+      speakBtn.style.display = 'none';
+    }
+    // 自动把结果带进视野，省去手动往下滚（scroll-margin 避免被吸顶卡片挡住）
+    requestAnimationFrame(() => {
+      resultBlock.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
+
+  const textCmd = document.getElementById('text-cmd');
+  const sendTextBtn = document.getElementById('send-text');
+
+  async function sendText() {
+    const text = textCmd.value.trim();
+    if (!text) { textCmd.focus(); return; }
+    sendTextBtn.disabled = true;
+    sendTextBtn.innerHTML = '<span class="spinner"></span>处理中...';
+    resultBlock.classList.remove('show');
+
+    const fd = new FormData();
+    fd.append('text', text);
+    fd.append('session_id', getSessionId());
+
+    try {
+      const resp = await fetch('/api/text', { method: 'POST', body: fd });
+      const data = await resp.json();
+      renderResult(data);
+    } catch (err) {
+      document.getElementById('text').textContent = '';
+      document.getElementById('intent').textContent = '';
+      const rt = document.getElementById('result-text');
+      rt.textContent = '请求失败：' + err.message;
+      rt.className = 'value error-text';
+      resultBlock.classList.add('show');
+    } finally {
+      sendTextBtn.disabled = false;
+      sendTextBtn.innerHTML = '发送文字指令';
+    }
+  }
+
+  sendTextBtn.addEventListener('click', sendText);
+  textCmd.addEventListener('keydown', e => { if (e.key === 'Enter') sendText(); });
 
   function renderFiles(files) {
     const ul = document.getElementById('filelist');

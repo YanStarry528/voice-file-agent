@@ -2,12 +2,13 @@ import os
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI, File, Request, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from agent.common import OUTPUT_DIR
-from agent.orchestrator import run
+from agent.orchestrator import run, run_text
+from agent.tts_skill import synthesize
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -30,11 +31,27 @@ def index(request: Request):
 
 
 @app.post("/api/upload")
-async def upload(audio: UploadFile = File(...)):
+async def upload(audio: UploadFile = File(...), session_id: str = Form("")):
     data = await audio.read()
-    result = run(data, audio.filename or "audio.wav")
+    result = run(data, audio.filename or "audio.wav", session_id or None)
     result["files"] = _list_files()
     return result
+
+
+@app.post("/api/text")
+async def text_command(text: str = Form(...), session_id: str = Form("")):
+    result = run_text(text, session_id or None)
+    result["files"] = _list_files()
+    return result
+
+
+@app.post("/api/tts")
+async def tts(text: str = Form(...)):
+    try:
+        audio = await synthesize(text)
+    except Exception:
+        return Response(status_code=500)
+    return Response(content=audio, media_type="audio/mpeg")
 
 
 if __name__ == "__main__":
