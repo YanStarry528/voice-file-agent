@@ -36,3 +36,13 @@ def isolated_output_dir(tmp_path, monkeypatch):
         mod = importlib.import_module(mod_name)
         monkeypatch.setattr(mod, "OUTPUT_DIR", tmp_path)
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def _reset_sessions():
+    """每个测试前后清空内存中的会话，避免跨测试串号（session 是模块级全局）。"""
+    from agent import session as session_mod
+
+    session_mod._SESSIONS.clear()
+    yield
+    session_mod._SESSIONS.clear()
