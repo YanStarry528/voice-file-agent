@@ -233,6 +233,12 @@
     document.getElementById('speak-btn').textContent = playing ? '⏹ 停止' : '🔊 重播';
   }
 
+  function markSpeakFailed() {
+    // TTS 失败不静默：把按钮文字变成提示，点击仍可重试
+    setSpeakBtn(false);
+    document.getElementById('speak-btn').textContent = '⚠️ 语音播报失败（点此重试）';
+  }
+
   function stopSpeak() {
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     setSpeakBtn(false);
@@ -245,7 +251,7 @@
       const fd = new FormData();
       fd.append('text', text);
       const resp = await fetch('/api/tts', { method: 'POST', body: fd });
-      if (!resp.ok) return;
+      if (!resp.ok) { markSpeakFailed(); return; }
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
@@ -254,8 +260,8 @@
       setSpeakBtn(true);
       await audio.play();
     } catch (e) {
-      // 自动播放被浏览器拦截或 TTS 失败 → 静默降级，仅保留文字
-      setSpeakBtn(false);
+      // 自动播放被浏览器拦截或 TTS 失败 → 明确提示，保留文字结果与重试入口
+      markSpeakFailed();
     }
   }
 

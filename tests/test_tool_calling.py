@@ -34,12 +34,11 @@ class _FakeCompletions:
 
 @pytest.fixture
 def fake_llm(monkeypatch):
-    """安装一个假的 llm_client，返回其调用记录器。"""
+    """安装一个假的 chat 函数，返回其调用记录器。"""
 
     def install(responses):
         fc = _FakeCompletions(responses)
-        client = SimpleNamespace(chat=SimpleNamespace(completions=fc))
-        monkeypatch.setattr(tool_calling, "llm_client", client)
+        monkeypatch.setattr(tool_calling, "chat", fc.create)
         return fc
 
     return install

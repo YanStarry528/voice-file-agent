@@ -13,7 +13,7 @@
 """
 import json
 
-from agent.common import llm_client, LLM_MODEL
+from agent.common import chat
 from agent.skill_registry import build_tools, dispatch, needs_confirm
 
 # 单轮最多允许的「思考→调用」往返次数，覆盖绝大多数复合指令
@@ -92,12 +92,7 @@ def run_agent(text: str, last_file: str | None = None, history: list[dict] | Non
     last_args: dict = {}
 
     for _ in range(MAX_ROUNDS):
-        resp = llm_client.chat.completions.create(
-            model=LLM_MODEL,
-            messages=messages,
-            tools=build_tools(),
-            temperature=0,
-        )
+        resp = chat(messages=messages, tools=build_tools())
         msg = resp.choices[0].message
 
         # 没有工具调用 → 是最终回复或追问，直接返回

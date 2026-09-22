@@ -3,7 +3,7 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from agent.common import OUTPUT_DIR
@@ -49,8 +49,9 @@ async def text_command(text: str = Form(...), session_id: str = Form("")):
 async def tts(text: str = Form(...)):
     try:
         audio = await synthesize(text)
-    except Exception:
-        return Response(status_code=500)
+    except Exception as e:
+        # 明确返回错误原因，前端据此提示用户而非静默失败
+        return JSONResponse(status_code=500, content={"error": f"语音合成失败：{e}"})
     return Response(content=audio, media_type="audio/mpeg")
 
 

@@ -1,7 +1,7 @@
 import json
 import re
 
-from agent.common import llm_client, LLM_MODEL
+from agent.common import chat
 from agent.skill_registry import all_skills
 
 
@@ -37,13 +37,11 @@ def classify(text: str, context: str | None = None) -> dict:
     user_content = text
     if context:
         user_content = f"{context}\n{text}"
-    response = llm_client.chat.completions.create(
-        model=LLM_MODEL,
+    response = chat(
         messages=[
             {"role": "system", "content": _build_system_prompt()},
             {"role": "user", "content": user_content},
         ],
-        temperature=0,
     )
     raw = response.choices[0].message.content
     return _parse_json(raw)
@@ -112,13 +110,11 @@ def complete_args(intent: str, args: dict, missing_field: str, text: str) -> dic
         f"缺失字段：{missing_field}\n"
         f"用户补充：{text}"
     )
-    response = llm_client.chat.completions.create(
-        model=LLM_MODEL,
+    response = chat(
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user_content},
         ],
-        temperature=0,
     )
     raw = response.choices[0].message.content
     return _parse_json(raw)
