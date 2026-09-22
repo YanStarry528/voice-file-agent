@@ -20,6 +20,8 @@ _OUTPUT_DIR_MODULES = [
     "agent.skills.delete_skill",
     "agent.skills.read_skill",
     "agent.skills.list_skill",
+    "agent.skills.search_skill",
+    "agent.skills.count_skill",
 ]
 
 
