@@ -76,12 +76,12 @@ voice-file-agent/
 │   ├── tool_calling.py    # Agent 工具调用循环（思考→调用→观察→继续）
 │   ├── stt_skill.py       # 语音转文字 + 繁体转简体
 │   ├── intent_skill.py    # 意图分类（工具调用失败时降级为 fallback）
-│   ├── tts_skill.py       # 语音合成（edge-tts）
+│   ├── tts_skill.py       # 语音合成（edge-tts，失败自动重试）
 │   ├── session.py         # 多轮会话记忆（指代消解、追问补全）
 │   ├── paths.py           # 路径安全校验（防穿越）
 │   ├── skill_registry.py  # Skill 注册中心 + 生成 function calling 工具定义
 │   ├── skills/            # 各个技能文件
-│   └── common.py          # 配置与输出目录
+│   └── common.py          # 配置 / 输出目录 / LLM 调用封装（带重试）
 ├── templates/index.html   # 前端页面（录音 / 播报开关 / 重播·停止）
 ├── docs/ROADMAP.md        # 后续扩展思路
 ├── output/                # 运行时产生的文件（已 gitignore）
@@ -118,3 +118,4 @@ def execute(args: dict) -> str:
 - 语音识别在本地完成，只有识别出的**文字**会发往网关做意图分类
 - 首次运行会自动下载 whisper 模型权重并缓存到本地
 - 执行结果会用语音播报（edge-tts），形成「说 → 听」闭环；页面右上角可一键开关播报
+- LLM 与 TTS 调用失败会自动重试（默认共尝试 3 次），重试仍失败时页面会明确提示「语音播报失败」而非静默无反应；重试次数/间隔/超时可在 `.env` 中调整
