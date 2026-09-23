@@ -1,7 +1,7 @@
 import os
 
 from agent.common import OUTPUT_DIR
-from agent.paths import safe_output_path
+from agent.paths import resolve_output_file
 from agent.skill_registry import register
 
 
@@ -12,12 +12,16 @@ from agent.skill_registry import register
     required=["filename", "content"],
 )
 def execute(args: dict) -> str:
-    """在 output 目录下的指定文件末尾追加内容；文件不存在则新建。"""
+    """在 output 目录下的指定文件末尾追加内容；文件不存在则新建。
+
+    文件名没带后缀时会自动补 .txt；若已存在同名的历史无后缀文件，
+    则继续追加到该文件，避免同一个东西分裂成两份。
+    """
     filename = args.get("filename", "untitled.txt")
     content = args.get("content", "")
 
     try:
-        path = safe_output_path(filename)
+        path = resolve_output_file(filename)
     except ValueError as e:
         return str(e)
 

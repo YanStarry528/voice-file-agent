@@ -80,12 +80,12 @@ voice-file-agent/
 │   ├── intent_skill.py    # 意图分类（工具调用失败时降级为 fallback）
 │   ├── tts_skill.py       # 语音合成（edge-tts，失败自动重试）
 │   ├── session.py         # 多轮会话记忆（指代消解、追问补全）
-│   ├── paths.py           # 路径安全校验（防穿越）
+│   ├── paths.py           # 路径安全校验（防穿越）+ 文件名后缀补全
 │   ├── skill_registry.py  # Skill 注册中心 + 生成 function calling 工具定义
 │   ├── skills/            # 各个技能文件
 │   └── common.py          # 配置 / 输出目录 / LLM 调用封装（带重试）
 ├── templates/index.html   # 前端页面（录音 / 播报开关 / 重播·停止）
-├── tests/                 # 单元测试（91 个用例，覆盖主流程与异常分支）
+├── tests/                 # 单元测试（105 个用例，覆盖主流程与异常分支）
 ├── conftest.py            # pytest 全局配置：加载 skill + 隔离输出目录
 ├── docs/ROADMAP.md        # 后续扩展思路
 ├── output/                # 运行时产生的文件（已 gitignore）
@@ -116,6 +116,7 @@ def execute(args: dict) -> str:
 ## 说明
 
 - 所有文件操作限定在 `output/` 目录内，避免误删系统文件
+- 语音里不会说出「点 txt」，所以文件名没带后缀时会**自动补 `.txt`**，存下来的文件双击即可打开；读取时也会依次尝试原名与「原名.txt」，说「会议记录」就能读到 `会议记录.txt`（已带其他后缀如 `.md` 的不会被改写）
 - 删除不可逆，执行前会反问「确认/取消」；改名可逆，直接执行
 - 多轮对话靠 `session_id` 串联：缺参数会追问，也可说「它」「上一个文件」指代最近操作的文件
 - 复合指令会被自动拆成多步执行，例如「读一下会议记录，把里面的待办存成 todo.txt」

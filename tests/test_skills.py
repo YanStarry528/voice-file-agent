@@ -83,3 +83,52 @@ def test_count_words_多行(isolated_output_dir):
 def test_count_words_文件不存在(isolated_output_dir):
     result = dispatch("count_words", {"filename": "没有.txt"})
     assert "不存在" in result
+
+
+def test_save_file_无后缀自动补_txt(isolated_output_dir):
+    dispatch("save_file", {"filename": "会议记录", "content": "今天开了产品会"})
+    assert (isolated_output_dir / "会议记录.txt").read_text(encoding="utf-8") == "今天开了产品会"
+
+
+def test_save_file_保留用户指定的后缀(isolated_output_dir):
+    dispatch("save_file", {"filename": "note.md", "content": "# 标题"})
+    assert (isolated_output_dir / "note.md").exists()
+    assert not (isolated_output_dir / "note.md.txt").exists()
+
+
+def test_read_file_无后缀能读到_txt(isolated_output_dir):
+    (isolated_output_dir / "会议记录.txt").write_text("内容", encoding="utf-8")
+    assert dispatch("read_file", {"filename": "会议记录"}) == "内容"
+
+
+def test_read_file_兼容历史无后缀文件(isolated_output_dir):
+    (isolated_output_dir / "会议记录").write_text("老文件", encoding="utf-8")
+    assert dispatch("read_file", {"filename": "会议记录"}) == "老文件"
+
+
+def test_append_无后缀不分裂文件(isolated_output_dir):
+    """已有无后缀文件时继续追加它，而不是新建一个 .txt 副本。"""
+    (isolated_output_dir / "会议记录").write_text("第一行", encoding="utf-8")
+    dispatch("append_file", {"filename": "会议记录", "content": "第二行"})
+    assert not (isolated_output_dir / "会议记录.txt").exists()
+    assert (isolated_output_dir / "会议记录").read_text(encoding="utf-8") == "第一行\n第二行\n"
+
+
+def test_count_words_无后缀(isolated_output_dir):
+    (isolated_output_dir / "会议记录.txt").write_text("你好 世界", encoding="utf-8")
+    result = dispatch("count_words", {"filename": "会议记录"})
+    assert "4 字" in result
+    assert "会议记录.txt" in result
+
+
+def test_delete_file_无后缀(isolated_output_dir):
+    (isolated_output_dir / "会议记录.txt").write_text("x", encoding="utf-8")
+    dispatch("delete_file", {"filename": "会议记录"})
+    assert not (isolated_output_dir / "会议记录.txt").exists()
+
+
+def test_rename_file_新名无后缀补_txt(isolated_output_dir):
+    (isolated_output_dir / "old.txt").write_text("x", encoding="utf-8")
+    result = dispatch("rename_file", {"filename": "old", "new_name": "会议纪要"})
+    assert (isolated_output_dir / "会议纪要.txt").exists()
+    assert "会议纪要.txt" in result

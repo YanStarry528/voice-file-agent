@@ -1,7 +1,7 @@
 import os
 
 from agent.common import OUTPUT_DIR
-from agent.paths import safe_output_path
+from agent.paths import resolve_output_file
 from agent.skill_registry import register
 
 
@@ -12,12 +12,15 @@ from agent.skill_registry import register
     required=["filename"],
 )
 def execute(args: dict) -> str:
-    """把内容保存到 output 目录下的指定文件（新建或覆盖）。"""
+    """把内容保存到 output 目录下的指定文件（新建或覆盖）。
+
+    文件名没带后缀时会自动补 .txt（语音输入不会说出「点 txt」）。
+    """
     filename = args.get("filename", "untitled.txt")
     content = args.get("content", "")
 
     try:
-        path = safe_output_path(filename)
+        path = resolve_output_file(filename)
     except ValueError as e:
         return str(e)
 

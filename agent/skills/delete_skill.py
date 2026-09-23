@@ -1,7 +1,7 @@
 import os
 
 from agent.common import OUTPUT_DIR
-from agent.paths import safe_output_path
+from agent.paths import resolve_output_file
 from agent.skill_registry import register
 
 
@@ -19,7 +19,7 @@ def execute(args: dict) -> str:
         return "请指定要删除的文件名。"
 
     try:
-        path = safe_output_path(filename)
+        path = resolve_output_file(filename)
     except ValueError as e:
         return str(e)
 

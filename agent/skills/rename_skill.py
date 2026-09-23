@@ -1,7 +1,7 @@
 import os
 
-from agent.common import OUTPUT_DIR
-from agent.paths import safe_output_path
+from agent.common import OUTPUT_DIR  # noqa: F401  # 供测试隔离 fixture 注入
+from agent.paths import resolve_output_file
 from agent.skill_registry import register
 
 
@@ -16,7 +16,10 @@ from agent.skill_registry import register
     confirm=False,  # 改名可逆（再改回来即可），不需要二次确认
 )
 def execute(args: dict) -> str:
-    """重命名 output 目录下的文件。目标已存在时拒绝，避免覆盖。"""
+    """重命名 output 目录下的文件。目标已存在时拒绝，避免覆盖。
+
+    新名字没带后缀时自动补 .txt，改名后依然是能直接打开的文本文件。
+    """
     old_name = args.get("filename", "")
     new_name = args.get("new_name", "")
 
@@ -28,15 +31,15 @@ def execute(args: dict) -> str:
         return f"新旧文件名相同（{old_name}），无需修改。"
 
     try:
-        src = safe_output_path(old_name)
-        dst = safe_output_path(new_name)
+        src = resolve_output_file(old_name)
+        dst = resolve_output_file(new_name)
     except ValueError as e:
         return str(e)
 
     if not src.exists():
         return f"文件 {old_name} 不存在"
     if dst.exists():
-        return f"文件 {new_name} 已存在，未做改动（避免覆盖已有文件）"
+        return f"文件 {dst.name} 已存在，未做改动（避免覆盖已有文件）"
 
     os.rename(src, dst)
-    return f"已将 {old_name} 改名为 {new_name}"
+    return f"已将 {src.name} 改名为 {dst.name}"
