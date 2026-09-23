@@ -119,3 +119,123 @@ def test_危险操作进入确认态(monkeypatch):
     assert out["confirming"] is True
     assert "确认" in out["result"]
     assert orchestrator.get_pending("s1")["type"] == "confirm"
+
+
+def test_空输入给出提示():
+    out = orchestrator.run_text("   ")
+    assert out["result"] == "请输入指令内容。"
+
+
+def test_主路径失败回退旧分类(monkeypatch):
+    """Agent 循环不可用（网关不支持 tools）时应走兜底的 JSON 分类路径。"""
+    def boom(text, last_file=None, history=None):
+        raise RuntimeError("网关不支持 tools")
+
+    monkeypatch.setattr(orchestrator, "run_agent", boom)
+    monkeypatch.setattr(
+        orchestrator, "classify",
+        lambda text, context=None: {"intent": "save_file", "filename": "a.txt", "content": "x"},
+    )
+    monkeypatch.setattr(orchestrator, "dispatch", lambda intent, args: "已保存")
+
+    out = orchestrator.run_text("保存 a.txt", session_id="s1")
+    assert out["result"] == "已保存"
+
+
+def test_分类也失败时给出明确提示(monkeypatch):
+    """两条路径都挂掉，也不能静默无响应。"""
+    def boom(text, last_file=None, history=None):
+        raise RuntimeError("网关不支持 tools")
+
+    def fail(text, context=None):
+        raise RuntimeError("网关挂了")
+
+    monkeypatch.setattr(orchestrator, "run_agent", boom)
+    monkeypatch.setattr(orchestrator, "classify", fail)
+
+    out = orchestrator.run_text("保存 a.txt", session_id="s1")
+    assert "意图分类失败" in out["result"]
+
+
+def test_确认后执行失败不崩溃(monkeypatch):
+    """skill 执行抛异常（如磁盘满）时，转成提示文案而不是让整个请求挂掉。"""
+    def boom(intent, args):
+        raise RuntimeError("磁盘已满")
+
+    monkeypatch.setattr(orchestrator, "dispatch", boom)
+    result = orchestrator._handle_confirm(
+        "确认", "s1", {"type": "confirm", "intent": "delete_file", "args": {"filename": "a.txt"}}
+    )
+    assert "执行失败" in result["result"]
+
+
+def test_无会话时危险操作安全取消(monkeypatch):
+    """没有 session 就无法等待下一轮确认，必须安全地不执行。"""
+    def fake(text, last_file=None, history=None):
+        raise NeedConfirm("delete_file", {"filename": "a.txt"})
+
+    monkeypatch.setattr(orchestrator, "run_agent", fake)
+    out = orchestrator.run_text("删掉 a.txt")  # 不传 session_id
+    assert out["confirming"] is True
+    assert "需要二次确认" in out["result"]
+
+
+def test_补全LLM失败退回规则清洗(monkeypatch):
+    """参数补全的 LLM 调用失败时，退回规则清洗，仍能听懂「文件名叫 a.txt」。"""
+    def boom(*a, **k):
+        raise RuntimeError("网关超时")
+
+    dispatched = []
+    monkeypatch.setattr(orchestrator, "complete_args", boom)
+    monkeypatch.setattr(
+        orchestrator, "dispatch", lambda intent, args: dispatched.append(args) or "已保存"
+    )
+    orchestrator._handle_supplement(
+        "文件名叫 a.txt", "s1",
+        {"type": "supplement", "intent": "save_file", "args": {"content": "x"}, "missing": ["filename"]},
+    )
+    assert dispatched
+    assert dispatched[0]["filename"] == "a.txt"
+
+
+def test_补充但无缺失字段则按新指令处理(monkeypatch):
+    """pending 里没有待补字段（异常状态）→ 清空后按正常指令重跑。"""
+    monkeypatch.setattr(
+        orchestrator, "run_agent",
+        lambda text, last_file=None, history=None: {
+            "result": "已列出", "confirming": False, "intent": "list_files",
+            "args": {}, "history": [],
+        },
+    )
+    result = orchestrator._handle_supplement(
+        "有哪些文件", "s1",
+        {"type": "supplement", "intent": "save_file", "args": {}, "missing": []},
+    )
+    assert result["result"] == "已列出"
+
+
+def test_指代消解把最近文件传给Agent(monkeypatch):
+    """两轮对话：先记住文件名，再说「它」时应把该文件名传给 Agent。"""
+    monkeypatch.setattr(
+        orchestrator, "run_agent",
+        lambda text, last_file=None, history=None: {
+            "result": "已保存", "confirming": False, "intent": "save_file",
+            "args": {"filename": "a.txt"}, "history": [],
+        },
+    )
+    orchestrator.run_text("保存 a.txt", session_id="s1")
+    assert orchestrator.get_session("s1").last_file == "a.txt"
+
+    captured = {}
+
+    def fake(text, last_file=None, history=None):
+        captured["last_file"] = last_file
+        return {
+            "result": "内容如下", "confirming": False, "intent": "read_file",
+            "args": {"filename": last_file}, "history": [],
+        }
+
+    monkeypatch.setattr(orchestrator, "run_agent", fake)
+    out = orchestrator.run_text("读一下它", session_id="s1")
+    assert captured["last_file"] == "a.txt"
+    assert out["result"] == "内容如下"

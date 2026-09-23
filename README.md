@@ -85,9 +85,12 @@ voice-file-agent/
 │   ├── skills/            # 各个技能文件
 │   └── common.py          # 配置 / 输出目录 / LLM 调用封装（带重试）
 ├── templates/index.html   # 前端页面（录音 / 播报开关 / 重播·停止）
+├── tests/                 # 单元测试（91 个用例，覆盖主流程与异常分支）
+├── conftest.py            # pytest 全局配置：加载 skill + 隔离输出目录
 ├── docs/ROADMAP.md        # 后续扩展思路
 ├── output/                # 运行时产生的文件（已 gitignore）
 ├── requirements.txt
+├── requirements-dev.txt   # 测试依赖（pytest 等）
 └── .env.example
 ```
 

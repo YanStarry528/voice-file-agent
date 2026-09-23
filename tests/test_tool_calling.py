@@ -96,3 +96,30 @@ def test_工具参数非json时容错(fake_llm, isolated_output_dir):
     out = run_agent("保存")
     assert (isolated_output_dir / "untitled.txt").exists()
     assert out["result"] == "完成。"
+
+
+def test_超过最大轮次给出提示(fake_llm, monkeypatch, isolated_output_dir):
+    # 把轮次上限压到 2，模拟模型连续不停地要求调用工具
+    monkeypatch.setattr(tool_calling, "MAX_ROUNDS", 2)
+    fc = fake_llm([
+        _resp(tool_calls=[_tool_call("save_file", '{"filename": "a.txt", "content": "1"}', "c1")]),
+        _resp(tool_calls=[_tool_call("save_file", '{"filename": "b.txt", "content": "2"}', "c2")]),
+    ])
+    out = run_agent("一直存")
+    assert "步骤过多" in out["result"]
+    assert out["confirming"] is False
+    assert len(fc.calls) == 2
+
+
+def test_模型返回空内容时给出兜底文案(fake_llm):
+    fake_llm([_resp(tool_calls=None, content="   ")])
+    out = run_agent("保存文件")
+    assert out["result"] == "已完成。"
+
+
+def test_指代消解把最近文件写进提示词(fake_llm):
+    fc = fake_llm([_resp(content="内容如下")])
+    run_agent("读一下它", last_file="a.txt")
+    system_msg = fc.calls[0]["messages"][0]["content"]
+    assert "a.txt" in system_msg
+    assert "指代" in system_msg or "它" in system_msg
