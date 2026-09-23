@@ -57,3 +57,39 @@ def test_全部失败抛最后一个异常(monkeypatch):
 
     with pytest.raises(RuntimeError):
         _run(tts_skill.synthesize("你好"))
+
+
+def test_清洗加粗标记():
+    assert tts_skill.strip_markdown("找到了 **会议纪要.txt**") == "找到了 会议纪要.txt"
+
+
+def test_清洗标题与列表符号():
+    raw = "# 标题\n- 第一项\n- 第二项"
+    assert tts_skill.strip_markdown(raw) == "标题\n第一项\n第二项"
+
+
+def test_清洗链接只留文字():
+    assert tts_skill.strip_markdown("见 [文档](http://a.com)") == "见 文档"
+
+
+def test_纯文字不受影响():
+    assert tts_skill.strip_markdown("会议纪要.txt 共 15 字、1 行。") == "会议纪要.txt 共 15 字、1 行。"
+
+
+def test_只有标记的文本清洗后为空():
+    assert tts_skill.strip_markdown("***") == ""
+
+
+def test_播报前自动清洗(monkeypatch):
+    calls = []
+
+    async def fake_once(text, voice):
+        calls.append(text)
+        return b"MP3"
+
+    monkeypatch.setattr(tts_skill, "_synthesize_once", fake_once)
+    monkeypatch.setattr(tts_skill, "TTS_MAX_RETRIES", 0)
+    monkeypatch.setattr(tts_skill, "TTS_RETRY_BASE_DELAY", 0)
+
+    _run(tts_skill.synthesize("找到了 **会议纪要.txt**"))
+    assert calls == ["找到了 会议纪要.txt"]

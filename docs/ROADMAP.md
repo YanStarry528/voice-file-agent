@@ -67,7 +67,7 @@
 | # | 改进项 | 状态 | 目标 | 优先级 |
 |---|---|---|---|---|
 | 1 | **安全检查** | ✅ 已实现（`agent/paths.py`） | 所有 skill 文件名统一经 `safe_output_path` 解析，`resolve()` 后做前缀校验，杜绝 `../`、绝对路径、反斜杠穿越 | ★★★ |
-| 2 | **单元测试** | ✅ 已实现（`tests/` + 根 `conftest.py`） | 覆盖路径安全、意图解析、各 skill、orchestrator 主流程、tool_calling 循环、LLM/TTS 重试，61 个用例 | ★★ |
+| 2 | **单元测试** | ✅ 已实现（`tests/` + 根 `conftest.py`） | 覆盖路径安全、意图解析、各 skill、orchestrator 主流程、tool_calling 循环、LLM/TTS 重试与 markdown 清洗，67 个用例 | ★★ |
 | 3 | **Docker / 一键启动** | 待实现 | 降低他人 clone 后的启动成本 | ★★ |
 | 4 | **错误兜底（重试 + 明确提示）** | ✅ 已实现（`common.chat` + `tts_skill`） | LLM 调用失败自动重试；TTS 合成失败自动重试，前端明确提示「语音播报失败」而非静默降级 | ★★ |
 
