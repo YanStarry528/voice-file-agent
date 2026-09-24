@@ -54,9 +54,12 @@
 已新增（均为纯本地、零 LLM 依赖，用来验证可插拔机制确实"加文件即生效"）：
 - ✅ `search_files`：按关键词搜索文件名与内容（`agent/skills/search_skill.py`）
 - ✅ `count_words`：统计文件字数与行数（`agent/skills/count_skill.py`）
+- ✅ `copy_file`：复制文件到新名字（`agent/skills/copy_skill.py`）
+- ✅ `move_file`：移动文件到子文件夹（`agent/skills/move_skill.py`）
+- ✅ `make_dir`：新建文件夹（`agent/skills/mkdir_skill.py`）
+- ✅ `file_info`：查看文件大小与最后修改时间（`agent/skills/info_skill.py`）
 
 后续可选：
-- **文件类**：复制、移动、新建文件夹、查看文件大小/修改时间
 - **整理类**：语音待办清单、会议纪要整理、本地文档问答（接 RAG）
 - **越界类**：日程提醒、网页搜索、发邮件——**建议不用邮箱/账号类 ToB 发布测试场景**，与本项目的"文件 Agent"定位偏离，优先级放低
 

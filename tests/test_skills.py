@@ -132,3 +132,75 @@ def test_rename_file_新名无后缀补_txt(isolated_output_dir):
     result = dispatch("rename_file", {"filename": "old", "new_name": "会议纪要"})
     assert (isolated_output_dir / "会议纪要.txt").exists()
     assert "会议纪要.txt" in result
+
+
+# ===== 方向三：文件类 skill（复制 / 移动 / 新建文件夹 / 文件信息） =====
+
+
+def test_copy_file(isolated_output_dir):
+    (isolated_output_dir / "a.txt").write_text("hello", encoding="utf-8")
+    result = dispatch("copy_file", {"filename": "a.txt", "new_name": "b.txt"})
+    assert (isolated_output_dir / "b.txt").read_text(encoding="utf-8") == "hello"
+    assert (isolated_output_dir / "a.txt").exists()  # 原件保留
+    assert "已复制" in result
+
+
+def test_copy_file_新名无后缀补_txt(isolated_output_dir):
+    (isolated_output_dir / "a.txt").write_text("x", encoding="utf-8")
+    dispatch("copy_file", {"filename": "a.txt", "new_name": "副本"})
+    assert (isolated_output_dir / "副本.txt").exists()
+
+
+def test_copy_file_目标已存在拒绝(isolated_output_dir):
+    (isolated_output_dir / "a.txt").write_text("old", encoding="utf-8")
+    (isolated_output_dir / "b.txt").write_text("new", encoding="utf-8")
+    result = dispatch("copy_file", {"filename": "a.txt", "new_name": "b.txt"})
+    assert "已存在" in result
+    assert (isolated_output_dir / "b.txt").read_text(encoding="utf-8") == "new"
+
+
+def test_copy_file_源不存在(isolated_output_dir):
+    result = dispatch("copy_file", {"filename": "没有.txt", "new_name": "b.txt"})
+    assert "不存在" in result
+
+
+def test_move_file(isolated_output_dir):
+    (isolated_output_dir / "a.txt").write_text("hello", encoding="utf-8")
+    result = dispatch("move_file", {"filename": "a.txt", "target_dir": "归档"})
+    assert (isolated_output_dir / "归档" / "a.txt").read_text(encoding="utf-8") == "hello"
+    assert not (isolated_output_dir / "a.txt").exists()
+    assert "移动" in result
+
+
+def test_move_file_目标已存在同名拒绝(isolated_output_dir):
+    (isolated_output_dir / "a.txt").write_text("old", encoding="utf-8")
+    (isolated_output_dir / "归档").mkdir()
+    (isolated_output_dir / "归档" / "a.txt").write_text("new", encoding="utf-8")
+    result = dispatch("move_file", {"filename": "a.txt", "target_dir": "归档"})
+    assert "已有" in result
+    assert (isolated_output_dir / "a.txt").exists()  # 未移动
+    assert (isolated_output_dir / "归档" / "a.txt").read_text(encoding="utf-8") == "new"
+
+
+def test_make_dir(isolated_output_dir):
+    result = dispatch("make_dir", {"dirname": "归档"})
+    assert (isolated_output_dir / "归档").is_dir()
+    assert "已新建" in result
+
+
+def test_make_dir_已存在(isolated_output_dir):
+    (isolated_output_dir / "归档").mkdir()
+    result = dispatch("make_dir", {"dirname": "归档"})
+    assert "已存在" in result
+
+
+def test_file_info(isolated_output_dir):
+    (isolated_output_dir / "a.txt").write_text("hello world", encoding="utf-8")
+    result = dispatch("file_info", {"filename": "a.txt"})
+    assert "11 B" in result
+    assert "最后修改于" in result
+
+
+def test_file_info_不存在(isolated_output_dir):
+    result = dispatch("file_info", {"filename": "没有.txt"})
+    assert "不存在" in result
