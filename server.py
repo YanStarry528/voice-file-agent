@@ -56,4 +56,6 @@ async def tts(text: str = Form(...)):
 
 
 if __name__ == "__main__":
-    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)
+    # 默认监听 0.0.0.0，让同一局域网下的手机也能访问；只想本机用时设 HOST=127.0.0.1
+    host = os.environ.get("HOST", "0.0.0.0")
+    uvicorn.run("server:app", host=host, port=8000, reload=True)

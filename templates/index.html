@@ -166,9 +166,12 @@
     <div class="dropzone" id="dropzone">
       <div class="icon">🎙️</div>
       <p>拖拽音频到这里，或 <span class="pick">点击选择文件</span></p>
+      <p style="font-size:12px;color:var(--muted);margin-top:6px;">手机端点「开始录音」会唤起系统录音机，录完自动识别</p>
       <p class="filename" id="filename" style="display:none;"></p>
       <input type="file" id="audio" accept="audio/*,.wav,.mp3,.m4a" hidden>
+      <input type="file" id="audio-capture" accept="audio/*" capture hidden>
     </div>
+    <button class="btn primary" id="record-btn" type="button" style="margin-top:12px; background: linear-gradient(135deg,#f43f5e,#e11d48);">🎙️ 开始录音</button>
     <button class="btn primary" id="submit" disabled>开始处理</button>
   </section>
 
@@ -303,14 +306,14 @@
     if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
   });
 
-  submitBtn.addEventListener('click', async () => {
-    if (!selectedFile) return;
+  async function processFile(file) {
+    setFile(file);
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="spinner"></span>Agent 正在处理...';
     resultBlock.classList.remove('show');
 
     const fd = new FormData();
-    fd.append('audio', selectedFile);
+    fd.append('audio', file);
     fd.append('session_id', getSessionId());
 
     try {
@@ -327,6 +330,64 @@
     } finally {
       submitBtn.disabled = false;
       submitBtn.innerHTML = '开始处理';
+    }
+  }
+
+  submitBtn.addEventListener('click', () => {
+    if (!selectedFile) return;
+    processFile(selectedFile);
+  });
+
+  // ===== 浏览器内录音（MediaRecorder） =====
+  const recordBtn = document.getElementById('record-btn');
+  // 手机上无法用 getUserMedia（http 局域网非安全上下文），改用带 capture 的 input 唤起系统录音机
+  const captureInput = document.getElementById('audio-capture');
+  captureInput.addEventListener('change', () => {
+    if (captureInput.files.length) processFile(captureInput.files[0]);
+  });
+  let mediaRecorder = null;
+  let recordStream = null;
+  let recordChunks = [];
+  let recordTimer = null;
+  let recordSeconds = 0;
+
+  function renderRecordBtn(recording) {
+    recordBtn.textContent = recording ? ('⏹ 停止录音 ' + recordSeconds + 's') : '🎙️ 开始录音';
+  }
+
+  recordBtn.addEventListener('click', async () => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+      return;
+    }
+    // 非安全上下文（手机通过 http://局域网IP 访问）或浏览器不支持 → 唤起系统录音机
+    if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      captureInput.click();
+      return;
+    }
+    try {
+      recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(recordStream);
+      recordChunks = [];
+      mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) recordChunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        recordStream.getTracks().forEach(t => t.stop());
+        clearInterval(recordTimer);
+        recordSeconds = 0;
+        renderRecordBtn(false);
+        // 按浏览器实际编码格式命名扩展名，faster-whisper 据此解码
+        const mime = mediaRecorder.mimeType || 'audio/webm';
+        const ext = mime.includes('mp4') ? 'm4a' : 'webm';
+        const blob = new Blob(recordChunks, { type: mime });
+        processFile(new File([blob], 'recording.' + ext, { type: mime }));
+      };
+      mediaRecorder.start();
+      recordSeconds = 0;
+      renderRecordBtn(true);
+      recordTimer = setInterval(() => { recordSeconds++; renderRecordBtn(true); }, 1000);
+    } catch (e) {
+      // 即便 API 存在也可能被安全上下文/授权拒绝 → 兜底到系统录音上传
+      captureInput.click();
     }
   });
 
