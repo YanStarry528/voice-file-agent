@@ -125,6 +125,17 @@
   .success-text { color: var(--success); font-weight: 600; }
   .error-text { color: var(--danger); font-weight: 600; }
   .asking-text { color: #b45309; font-weight: 600; background: #fef9c3; }
+  /* 文件列表默认收起：文件一多会占满版面，标题带数量，需要时点开 */
+  details.file-details > summary {
+    cursor: pointer; list-style: none; user-select: none;
+    font-size: 17px; font-weight: 700;
+    display: flex; align-items: center; gap: 8px;
+  }
+  details.file-details > summary::-webkit-details-marker { display: none; }
+  details.file-details > summary::before { content: "▸"; color: var(--muted); font-size: 14px; }
+  details.file-details[open] > summary::before { content: "▾"; }
+  details.file-details > summary:hover { color: var(--primary); }
+  details.file-details[open] > summary { margin-bottom: 14px; }
   .filelist { list-style: none; }
   .filelist li {
     padding: 10px 12px;
@@ -196,14 +207,16 @@
   </section>
 
   <section class="card">
-    <h2 style="font-size:17px;margin-bottom:14px;">📁 output 目录文件</h2>
-    <ul class="filelist" id="filelist">
-      {% for f in files %}
-      <li><span class="dot"></span>{{ f }}</li>
-      {% else %}
-      <li class="empty">暂无文件</li>
-      {% endfor %}
-    </ul>
+    <details class="file-details" id="filelist-details">
+      <summary id="filelist-summary">📁 output 目录文件（{{ files|length }} 个）</summary>
+      <ul class="filelist" id="filelist">
+        {% for f in files %}
+        <li><span class="dot"></span>{{ f }}</li>
+        {% else %}
+        <li class="empty">暂无文件</li>
+        {% endfor %}
+      </ul>
+    </details>
   </section>
 </div>
 
@@ -455,8 +468,18 @@
   sendTextBtn.addEventListener('click', sendText);
   textCmd.addEventListener('keydown', e => { if (e.key === 'Enter') sendText(); });
 
+  // ===== output 文件列表：默认收起，展开状态记在 localStorage =====
+  const fileDetails = document.getElementById('filelist-details');
+  fileDetails.open = localStorage.getItem('filelist_open') === '1';
+  fileDetails.addEventListener('toggle', () => {
+    localStorage.setItem('filelist_open', fileDetails.open ? '1' : '0');
+  });
+
   function renderFiles(files) {
     const ul = document.getElementById('filelist');
+    const summary = document.getElementById('filelist-summary');
+    // 标题上直接带数量，收起时也能知道有多少文件
+    summary.textContent = '📁 output 目录文件（' + files.length + ' 个）';
     ul.innerHTML = '';
     if (!files.length) {
       const li = document.createElement('li');
