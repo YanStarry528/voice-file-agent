@@ -254,3 +254,47 @@ def test_done_todo_找不到(isolated_output_dir):
     (isolated_output_dir / "todo.txt").write_text("[ ] 买牛奶\n", encoding="utf-8")
     result = dispatch("done_todo", {"content": "不存在的事"})
     assert "没有找到" in result
+
+
+# ===== 方向三：会议纪要整理 skill（依赖 LLM，需 mock chat） =====
+
+
+def _fake_llm_response(content):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=content))]
+    )
+
+
+def test_summarize_meeting_生成纪要(monkeypatch, isolated_output_dir):
+    import agent.skills.meeting_summary_skill as meeting_skill
+
+    (isolated_output_dir / "会议记录.txt").write_text(
+        "今天讨论发布计划，决定周五上线，小王负责测试。", encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        meeting_skill, "chat", lambda **kw: _fake_llm_response("## 会议主题\n发布计划")
+    )
+    result = dispatch("summarize_meeting", {"filename": "会议记录"})
+    assert "已生成会议纪要" in result
+    assert "会议记录_纪要.txt" in result
+    assert (
+        isolated_output_dir / "会议记录_纪要.txt"
+    ).read_text(encoding="utf-8") == "## 会议主题\n发布计划"
+
+
+def test_summarize_meeting_文件不存在(isolated_output_dir):
+    result = dispatch("summarize_meeting", {"filename": "没有.txt"})
+    assert "不存在" in result
+
+
+def test_summarize_meeting_空文件(isolated_output_dir):
+    (isolated_output_dir / "a.txt").write_text("   ", encoding="utf-8")
+    result = dispatch("summarize_meeting", {"filename": "a.txt"})
+    assert "空的" in result
+
+
+def test_summarize_meeting_空文件名(isolated_output_dir):
+    result = dispatch("summarize_meeting", {"filename": ""})
+    assert "请指定" in result
