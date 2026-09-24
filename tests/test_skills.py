@@ -204,3 +204,53 @@ def test_file_info(isolated_output_dir):
 def test_file_info_不存在(isolated_output_dir):
     result = dispatch("file_info", {"filename": "没有.txt"})
     assert "不存在" in result
+
+
+# ===== 方向三：待办清单 skill（记待办 / 列待办 / 标记完成） =====
+
+
+def test_add_todo_记一条(isolated_output_dir):
+    result = dispatch("add_todo", {"content": "明天交周报"})
+    assert "已记下" in result
+    assert (isolated_output_dir / "todo.txt").read_text(encoding="utf-8") == "[ ] 明天交周报\n"
+
+
+def test_add_todo_追加不覆盖(isolated_output_dir):
+    (isolated_output_dir / "todo.txt").write_text("[ ] 第一条\n", encoding="utf-8")
+    dispatch("add_todo", {"content": "第二条"})
+    text = (isolated_output_dir / "todo.txt").read_text(encoding="utf-8")
+    assert "[ ] 第一条" in text
+    assert "[ ] 第二条" in text
+
+
+def test_add_todo_空内容(isolated_output_dir):
+    result = dispatch("add_todo", {"content": ""})
+    assert "待办内容" in result
+
+
+def test_list_todo_空清单(isolated_output_dir):
+    result = dispatch("list_todo", {})
+    assert "还没有" in result
+
+
+def test_list_todo_有内容(isolated_output_dir):
+    (isolated_output_dir / "todo.txt").write_text("[ ] 买牛奶\n[x] 回复邮件\n", encoding="utf-8")
+    result = dispatch("list_todo", {})
+    assert "买牛奶" in result
+    assert "回复邮件" in result
+    assert "1 条待办" in result
+
+
+def test_done_todo_标记完成(isolated_output_dir):
+    (isolated_output_dir / "todo.txt").write_text("[ ] 买牛奶\n[ ] 交周报\n", encoding="utf-8")
+    result = dispatch("done_todo", {"content": "买牛奶"})
+    text = (isolated_output_dir / "todo.txt").read_text(encoding="utf-8")
+    assert "[x] 买牛奶" in text
+    assert "[ ] 交周报" in text
+    assert "标记为完成" in result
+
+
+def test_done_todo_找不到(isolated_output_dir):
+    (isolated_output_dir / "todo.txt").write_text("[ ] 买牛奶\n", encoding="utf-8")
+    result = dispatch("done_todo", {"content": "不存在的事"})
+    assert "没有找到" in result
