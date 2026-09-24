@@ -298,3 +298,70 @@ def test_summarize_meeting_空文件(isolated_output_dir):
 def test_summarize_meeting_空文件名(isolated_output_dir):
     result = dispatch("summarize_meeting", {"filename": ""})
     assert "请指定" in result
+
+
+# ===== 方向三：本地文档问答 skill（轻量 RAG，需 mock chat） =====
+
+
+def test_ask_doc_空问题(isolated_output_dir):
+    result = dispatch("ask_doc", {"question": ""})
+    assert "请告诉我" in result
+
+
+def test_ask_doc_没有文档(isolated_output_dir):
+    result = dispatch("ask_doc", {"question": "上线时间"})
+    assert "还没有可以问答的文档" in result
+
+
+def test_ask_doc_检索不到(isolated_output_dir):
+    (isolated_output_dir / "a.txt").write_text("今天讨论了预算问题。", encoding="utf-8")
+    result = dispatch("ask_doc", {"question": "上线时间是什么时候"})
+    assert "没有找到" in result
+
+
+def test_ask_doc_回答并标注来源(monkeypatch, isolated_output_dir):
+    import agent.skills.ask_doc_skill as ask_skill
+
+    (isolated_output_dir / "a.txt").write_text(
+        "海外版上线时间推迟到下个月中旬。", encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        ask_skill,
+        "chat",
+        lambda **kw: _fake_llm_response("上线时间推迟到下个月中旬（来源：a.txt）"),
+    )
+    result = dispatch("ask_doc", {"question": "上线时间是什么时候"})
+    assert "下个月中旬" in result
+    assert "参考来源" in result
+    assert "a.txt" in result
+
+
+def test_ask_doc_只喂相关片段(monkeypatch, isolated_output_dir):
+    """检索生效的证据：无关文档的内容不应出现在喂给 LLM 的 prompt 里。"""
+    import agent.skills.ask_doc_skill as ask_skill
+
+    (isolated_output_dir / "a.txt").write_text(
+        "海外版上线时间推迟到下个月中旬。", encoding="utf-8"
+    )
+    (isolated_output_dir / "b.txt").write_text("购物清单：牛奶、面包、鸡蛋。", encoding="utf-8")
+
+    seen = {}
+
+    def fake_chat(**kw):
+        seen["messages"] = kw["messages"]
+        return _fake_llm_response("下个月中旬（来源：a.txt）")
+
+    monkeypatch.setattr(ask_skill, "chat", fake_chat)
+    dispatch("ask_doc", {"question": "上线时间"})
+
+    prompt = seen["messages"][-1]["content"]
+    assert "下个月中旬" in prompt
+    assert "牛奶" not in prompt
+
+
+def test_ask_doc_长段落切分():
+    import agent.skills.ask_doc_skill as ask_skill
+
+    chunks = ask_skill._split_chunks("啊" * 500)
+    assert len(chunks) > 1
+    assert all(len(c) <= ask_skill.CHUNK_SIZE for c in chunks)

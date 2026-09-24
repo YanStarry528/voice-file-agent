@@ -144,10 +144,18 @@ def _run_pipeline(text: str, session_id: str | None) -> dict:
             append_history(session_id, item["role"], item["content"])
     _remember(session_id, outcome.get("intent"), outcome.get("args") or {})
 
+    result = outcome["result"]
+    # ask_doc 等带「参考来源」标注的 skill：模型一句话总结时可能把来源省掉，
+    # 这里从工具原始返回中把来源行补回去，保证答案可溯源。
+    tool_result = outcome.get("tool_result") or ""
+    if "参考来源：" in tool_result and "参考来源" not in result:
+        source = tool_result.split("参考来源：", 1)[1].strip().splitlines()[0].strip()
+        result = f"{result}\n\n参考来源：{source}"
+
     return {
         "text": text,
         "intent": {"intent": outcome.get("intent"), **(outcome.get("args") or {})},
-        "result": outcome["result"],
+        "result": result,
         "confirming": outcome.get("confirming", False),
     }
 

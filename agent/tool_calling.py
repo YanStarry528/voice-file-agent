@@ -39,7 +39,7 @@ def _system_prompt(last_file: str | None) -> str:
         "1. 用工具完成文件操作，不要凭空编造文件内容或操作结果。",
         "2. 缺少必要信息（如文件名、要写的内容）时，先用文字追问用户，不要乱填、不要猜。",
         "3. 用户的一句话可能包含多个动作，可以分多步调用工具完成；每次调用后根据返回结果决定下一步。",
-        "4. 全部完成后，用一句话向用户总结结果。",
+        "4. 全部完成后，用一句话向用户总结结果。若工具返回中带有「参考来源」等标注，总结时必须保留来源信息，不得省略或改写文件名。",
     ]
     if last_file:
         lines.append(
@@ -90,6 +90,7 @@ def run_agent(text: str, last_file: str | None = None, history: list[dict] | Non
 
     last_intent: str | None = None
     last_args: dict = {}
+    last_tool_result = ""
 
     for _ in range(MAX_ROUNDS):
         resp = chat(messages=messages, tools=build_tools())
@@ -103,6 +104,7 @@ def run_agent(text: str, last_file: str | None = None, history: list[dict] | Non
                 "confirming": False,
                 "intent": last_intent,
                 "args": last_args,
+                "tool_result": last_tool_result,
                 "history": [
                     {"role": "user", "content": text},
                     {"role": "assistant", "content": final},
@@ -126,6 +128,7 @@ def run_agent(text: str, last_file: str | None = None, history: list[dict] | Non
             messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
             last_intent = name
             last_args = args
+            last_tool_result = result
 
     # 循环跑满仍未结束（连续调用超过上限），给个明确提示
     return {
@@ -133,6 +136,7 @@ def run_agent(text: str, last_file: str | None = None, history: list[dict] | Non
         "confirming": False,
         "intent": last_intent,
         "args": last_args,
+        "tool_result": last_tool_result,
         "history": [
             {"role": "user", "content": text},
             {"role": "assistant", "content": "任务步骤过多，已暂停。"},

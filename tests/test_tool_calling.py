@@ -56,6 +56,16 @@ def test_单步保存文件(fake_llm, isolated_output_dir):
     assert len(fc.calls) == 2  # 工具调用一轮 + 总结一轮
 
 
+def test_返回最后一次工具的原始结果(fake_llm, isolated_output_dir):
+    """工具原始返回随结果带出，供上层（orchestrator）补回被总结丢掉的信息。"""
+    fake_llm([
+        _resp(tool_calls=[_tool_call("save_file", '{"filename": "a.txt", "content": "hi"}')]),
+        _resp(content="已保存。"),
+    ])
+    out = run_agent("保存 a.txt")
+    assert "a.txt" in out["tool_result"]
+
+
 def test_复合指令拆多步(fake_llm, isolated_output_dir):
     fc = fake_llm([
         _resp(tool_calls=[_tool_call("save_file", '{"filename": "a.txt", "content": "1"}', "c1")]),

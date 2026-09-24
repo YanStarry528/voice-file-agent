@@ -22,6 +22,7 @@ _OUTPUT_DIR_MODULES = [
     "agent.skills.list_skill",
     "agent.skills.search_skill",
     "agent.skills.count_skill",
+    "agent.skills.ask_doc_skill",
 ]
 
 

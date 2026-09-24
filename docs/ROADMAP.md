@@ -62,9 +62,10 @@
 - ✅ `list_todo`：列出待办清单（`agent/skills/todo_skill.py`）
 - ✅ `done_todo`：标记待办完成（`agent/skills/todo_skill.py`）
 - ✅ `summarize_meeting`：把会议记录整理成结构化纪要（`agent/skills/meeting_summary_skill.py`，首个依赖 LLM 的 skill）
+- ✅ `ask_doc`：基于 output 目录的文档回答问题（`agent/skills/ask_doc_skill.py`，轻量 RAG：实时切段 + bigram 检索 + 依据片段作答并标注来源，不落盘索引）
 
 后续可选：
-- **整理类**：本地文档问答（接 RAG）——待办清单、会议纪要已实现
+- **整理类**：本地文档问答（接 RAG）——待办清单、会议纪要、文档问答均已实现；后续可升级为 embedding 向量检索（需引入模型依赖）
 - **越界类**：日程提醒、网页搜索、发邮件——**建议不用邮箱/账号类 ToB 发布测试场景**，与本项目的"文件 Agent"定位偏离，优先级放低
 
 ---
@@ -74,7 +75,7 @@
 | # | 改进项 | 状态 | 目标 | 优先级 |
 |---|---|---|---|---|
 | 1 | **安全检查** | ✅ 已实现（`agent/paths.py`） | 所有 skill 文件名统一经 `safe_output_path` 解析，`resolve()` 后做前缀校验，杜绝 `../`、绝对路径、反斜杠穿越 | ★★★ |
-| 2 | **单元测试** | ✅ 已实现（`tests/` + 根 `conftest.py`） | 覆盖路径安全、意图解析、各 skill、orchestrator 主流程与异常分支、tool_calling 循环、session 多轮记忆、LLM/TTS 重试与 markdown 清洗、后缀补全，126 个用例 | ★★ |
+| 2 | **单元测试** | ✅ 已实现（`tests/` + 根 `conftest.py`） | 覆盖路径安全、意图解析、各 skill、orchestrator 主流程与异常分支、tool_calling 循环、session 多轮记忆、LLM/TTS 重试与 markdown 清洗、后缀补全，136 个用例 | ★★ |
 | 3 | **错误兜底（重试 + 明确提示）** | ✅ 已实现（`common.chat` + `tts_skill`） | LLM 调用失败自动重试；TTS 合成失败自动重试，前端明确提示「语音播报失败」而非静默降级 | ★★ |
 | 4 | **文件名后缀补全** | ✅ 已实现（`paths.resolve_output_file`） | 语音不会说出「点 txt」，无后缀文件名保存时自动补 `.txt`、读取时回退匹配「原名.txt」；已带其他后缀（`.md` 等）不改写；已存在的历史无后缀文件优先沿用，避免同一内容分裂成两份 | ★★ |
 

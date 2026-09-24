@@ -60,6 +60,52 @@ def test_取消不执行(monkeypatch):
     assert dispatched == []
 
 
+def _fake_outcome(result: str, tool_result: str) -> dict:
+    return {
+        "result": result,
+        "confirming": False,
+        "intent": "ask_doc",
+        "args": {"question": "上线时间"},
+        "tool_result": tool_result,
+        "history": [],
+    }
+
+
+def test_总结丢失参考来源时补回(monkeypatch):
+    """模型一句话总结把来源省掉时，从工具原始返回中补回参考来源行。"""
+    monkeypatch.setattr(
+        orchestrator, "run_agent",
+        lambda *a, **k: _fake_outcome(
+            "根据文档，海外版下个月中旬上线。",
+            "海外版下个月中旬上线。\n\n参考来源：会议记录3_纪要.txt 第1段",
+        ),
+    )
+    out = orchestrator.run_text("海外版上线时间是什么时候", "s9")
+    assert out["result"].endswith("参考来源：会议记录3_纪要.txt 第1段")
+
+
+def test_总结已含来源时不重复补(monkeypatch):
+    monkeypatch.setattr(
+        orchestrator, "run_agent",
+        lambda *a, **k: _fake_outcome(
+            "根据文档（参考来源：a.txt 第1段），下月上线。",
+            "下月上线。\n\n参考来源：a.txt 第1段",
+        ),
+    )
+    out = orchestrator.run_text("上线时间", "s9")
+    assert out["result"].count("参考来源") == 1
+
+
+def test_普通skill总结不受影响(monkeypatch):
+    """没有参考来源标注的普通结果，不做任何拼接。"""
+    monkeypatch.setattr(
+        orchestrator, "run_agent",
+        lambda *a, **k: _fake_outcome("已保存。", "已保存到 a.txt"),
+    )
+    out = orchestrator.run_text("保存文件", "s9")
+    assert out["result"] == "已保存。"
+
+
 def test_犹豫则重问(monkeypatch):
     pending = {"type": "confirm", "intent": "delete_file", "args": {"filename": "a.txt"}}
     orchestrator.set_pending("s1", pending)
